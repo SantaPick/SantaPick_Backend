@@ -15,12 +15,14 @@ class UserInfoRequest(BaseModel):
 
 class UserInfoResponse(BaseModel):
     success: bool
-    data: Dict[str, str]
+    data: Optional[Dict[str, str]] = None
+    error: Optional[Dict[str, str]] = None
 
 # 심리테스트 관련
 class TestQuestionsResponse(BaseModel):
     success: bool
-    data: Dict[str, Any]
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[Dict[str, str]] = None
 
 class TestProgress(BaseModel):
     current_step: int
@@ -34,7 +36,8 @@ class TestSubmitRequest(BaseModel):
 
 class TestSubmitResponse(BaseModel):
     success: bool
-    data: Dict[str, Any]
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[Dict[str, str]] = None
 
 # 추천 관련
 class RecommendationItem(BaseModel):

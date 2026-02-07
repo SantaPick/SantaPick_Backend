@@ -48,6 +48,7 @@ class TestService:
         if data.session_id not in sessions:
             return {
                 "success": False,
+                "data": None,
                 "error": {"code": "SESSION_NOT_FOUND", "message": "세션을 찾을 수 없습니다."}
             }
         
@@ -71,8 +72,14 @@ class TestService:
             session['personality_scores'] = user_weights
             
         except Exception as e:
-            # 점수 계산 실패 시 기본값 사용
-            user_weights = {}
+            # 점수 계산 실패 시 오류 반환
+            print(f"점수 계산 실패: {e}")
+            print(f"답변 데이터 형식: {session.get('answers', [])[:2]}")  # 처음 2개 답변 확인
+            return {
+                "success": False,
+                "data": None,
+                "error": {"code": "SCORING_ERROR", "message": f"점수 계산 실패: {str(e)}"}
+            }
         
         if data.progress.is_final:
             return {
@@ -152,108 +159,68 @@ class RecommendationService:
         if session_id not in sessions:
             return {
                 "success": False,
+                "data": None,
                 "error": {"code": "SESSION_NOT_FOUND", "message": "세션을 찾을 수 없습니다."}
             }
         
         session = sessions[session_id]
         user_weights = session.get('personality_scores', {})
         
-        # personality_scores가 없으면 간단한 가중치 계산
+        # personality_scores가 없으면 추천 불가
         if not user_weights:
-            try:
-                # 모든 trait 노드에 대한 가중치 계산
-                trait_scores = {}
-                
-                # 답변을 기반으로 trait별 점수 계산
-                for answer in session.get('answers', []):
-                    target_node = answer.get('target_node', 'Extraversion')
-                    answer_value = answer.get('answer', '')
-                    
-                    # 답변에 따른 점수 부여 (1-5 스케일 가정)
-                    if '매우' in answer_value and '동의' in answer_value:
-                        score = 1.0
-                    elif '동의' in answer_value:
-                        score = 0.8
-                    elif '보통' in answer_value or '중립' in answer_value:
-                        score = 0.5
-                    elif '동의하지' in answer_value:
-                        score = 0.2
-                    elif '매우' in answer_value and '동의하지' in answer_value:
-                        score = 0.0
-                    else:
-                        # 기타 답변의 경우 중간값
-                        score = 0.5
-                    
-                    if target_node not in trait_scores:
-                        trait_scores[target_node] = []
-                    trait_scores[target_node].append(score)
-                
-                # 모든 trait 노드 목록 (모델에서 확인된 16개)
-                all_trait_nodes = [
-                    'Openness', 'Conscientiousness', 'Extraversion', 'Agreeableness', 'Neuroticism',
-                    'Elegant', 'Cute', 'Modern', 'Luxurious', 'Warm', 'Vivid', 'Sharp',
-                    'OSL', 'CNFU', 'MVS', 'CVPA'
-                ]
-                
-                # 평균 점수로 가중치 생성
-                user_weights = {}
-                for trait in all_trait_nodes:
-                    if trait in trait_scores and len(trait_scores[trait]) > 0:
-                        # 실제 답변이 있는 경우 평균 계산
-                        user_weights[trait] = sum(trait_scores[trait]) / len(trait_scores[trait])
-                    else:
-                        # 답변이 없는 trait들에 대해 랜덤한 기본값 설정
-                        import random
-                        if trait in ['Extraversion', 'Agreeableness', 'Conscientiousness', 'Openness']:
-                            user_weights[trait] = 0.3 + random.random() * 0.4  # 0.3-0.7 범위
-                        elif trait == 'Neuroticism':
-                            user_weights[trait] = 0.1 + random.random() * 0.4  # 0.1-0.5 범위
-                        else:
-                            user_weights[trait] = 0.2 + random.random() * 0.6  # 0.2-0.8 범위
+            return {
+                "success": False,
+                "data": None,
+                "error": {"code": "NO_PERSONALITY_DATA", "message": "성격 분석 결과가 없습니다. 먼저 심리테스트를 완료해주세요."}
+            }
+        
+        # GPT 분석 결과를 기반으로 가중치 최종 조정 (선택사항)
+        try:
+            all_answers = session.get('answers', [])
+            gpt_result = self.gpt_service.generate_final_result(
+                user_weights,
+                session['user_info']['name'], 
+                all_answers
+            )
+            
+            # GPT 분석 결과를 바탕으로 가중치 조정
+            adjusted_weights = self._adjust_weights_with_gpt_analysis(
+                user_weights, 
+                gpt_result.get('personality_type', ''),
+                gpt_result.get('description', '')
+            )
+            
+            session['personality_scores'] = adjusted_weights
+            print(f"GPT 조정 후 가중치 (총 {len(adjusted_weights)}개): {adjusted_weights}")
+            
+        except Exception as e:
+            print(f"GPT 가중치 조정 실패: {e}")
+            # GPT 조정 실패 시 원본 가중치 사용
+            print(f"기본 계산된 사용자 가중치 (총 {len(user_weights)}개): {user_weights}")
+            for trait in all_trait_nodes:
+                if trait in ['Extraversion', 'Agreeableness', 'Conscientiousness']:
+                    user_weights[trait] = 0.5
+                elif trait == 'Openness':
+                    user_weights[trait] = 0.7
+                elif trait == 'Neuroticism':
+                    user_weights[trait] = 0.3
                 else:
-                    # 기본 가중치 (모든 trait 포함)
-                    user_weights = {}
-                    for trait in all_trait_nodes:
-                        if trait in ['Extraversion', 'Agreeableness', 'Conscientiousness', 'Openness']:
-                            user_weights[trait] = 0.5
-                        elif trait == 'Neuroticism':
-                            user_weights[trait] = 0.3
-                        else:
-                            user_weights[trait] = 0.4
-                
-                session['personality_scores'] = user_weights
-                print(f"계산된 사용자 가중치 (총 {len(user_weights)}개): {user_weights}")
-                
-            except Exception as e:
-                print(f"성격 점수 계산 오류: {e}")
-                # 기본 가중치 사용 (모든 trait 포함)
-                all_trait_nodes = [
-                    'Openness', 'Conscientiousness', 'Extraversion', 'Agreeableness', 'Neuroticism',
-                    'Elegant', 'Cute', 'Modern', 'Luxurious', 'Warm', 'Vivid', 'Sharp',
-                    'OSL', 'CNFU', 'MVS', 'CVPA'
-                ]
-                user_weights = {}
-                for trait in all_trait_nodes:
-                    if trait in ['Extraversion', 'Agreeableness', 'Conscientiousness']:
-                        user_weights[trait] = 0.5
-                    elif trait == 'Openness':
-                        user_weights[trait] = 0.7
-                    elif trait == 'Neuroticism':
-                        user_weights[trait] = 0.3
-                    else:
-                        user_weights[trait] = 0.4
+                    user_weights[trait] = 0.4
         
         try:
             # 추천 엔진 실행
             engine = self._get_engine()
             # 1. User 노드를 그래프에 추가
             user_id = engine.add_user_node(user_weights)
-            # 2. 추천 생성
-            recommendations = engine.get_recommendations(user_id, top_k=10)
+            # 2. 추천 생성 (더 많은 후보 생성 후 다양성 필터링)
+            recommendations = engine.get_recommendations(user_id, top_k=20)
+            
+            # 3. 다양성 기반 필터링으로 최종 10개 선택
+            diverse_recommendations = self._apply_diversity_filter(recommendations, target_count=10)
             
             # 결과 포맷팅
             formatted_recommendations = []
-            for i, rec in enumerate(recommendations):
+            for i, rec in enumerate(diverse_recommendations):
                 # recommendation_engine에서 반환하는 딕셔너리 형태 처리
                 product_id = self._extract_product_id(rec.get('item_id'))
                 formatted_recommendations.append({
@@ -299,8 +266,171 @@ class RecommendationService:
         except Exception as e:
             return {
                 "success": False,
+                "data": None,
                 "error": {"code": "RECOMMENDATION_ERROR", "message": f"추천 생성 실패: {str(e)}"}
             }
+    
+    def _adjust_weights_with_gpt_analysis(self, base_weights, personality_type, description):
+        """GPT 분석 결과를 바탕으로 가중치 조정"""
+        adjusted_weights = base_weights.copy()
+        
+        # 성격 유형별 가중치 조정 패턴
+        adjustments = {}
+        
+        # 외향성 관련 조정
+        if any(word in personality_type.lower() for word in ['외향', '사교', '활발', '적극']):
+            adjustments['Extraversion'] = 0.2
+            adjustments['Agreeableness'] = 0.1
+        elif any(word in personality_type.lower() for word in ['내향', '조용', '신중', '차분']):
+            adjustments['Extraversion'] = -0.2
+            adjustments['Openness'] = 0.1
+        
+        # 창의성 관련 조정
+        if any(word in personality_type.lower() for word in ['창의', '예술', '상상', '혁신']):
+            adjustments['Openness'] = 0.3
+            adjustments['Modern'] = 0.2
+        elif any(word in personality_type.lower() for word in ['보수', '전통', '안정', '실용']):
+            adjustments['Conscientiousness'] = 0.2
+            adjustments['Openness'] = -0.1
+        
+        # 감성 관련 조정
+        if any(word in personality_type.lower() for word in ['감성', '감정', '따뜻', '온화']):
+            adjustments['Warm'] = 0.3
+            adjustments['Cute'] = 0.2
+            adjustments['Agreeableness'] = 0.1
+        elif any(word in personality_type.lower() for word in ['이성', '논리', '차가', '냉정']):
+            adjustments['Sharp'] = 0.2
+            adjustments['Modern'] = 0.1
+        
+        # 완벽주의 관련 조정
+        if any(word in personality_type.lower() for word in ['완벽', '꼼꼼', '체계', '정확']):
+            adjustments['Conscientiousness'] = 0.3
+            adjustments['Elegant'] = 0.2
+        elif any(word in personality_type.lower() for word in ['자유', '즉흥', '유연', '편안']):
+            adjustments['Conscientiousness'] = -0.1
+            adjustments['Cute'] = 0.1
+        
+        # 럭셔리/고급 관련 조정
+        if any(word in personality_type.lower() for word in ['고급', '세련', '우아', '품격']):
+            adjustments['Luxurious'] = 0.3
+            adjustments['Elegant'] = 0.2
+        elif any(word in personality_type.lower() for word in ['소박', '단순', '검소', '실용']):
+            adjustments['Luxurious'] = -0.2
+        
+        # 조정 적용
+        for trait, adjustment in adjustments.items():
+            if trait in adjusted_weights:
+                new_value = adjusted_weights[trait] + adjustment
+                adjusted_weights[trait] = max(0.0, min(1.0, new_value))  # 0-1 범위로 클리핑
+        
+        # 조정 내역 로깅
+        changes = []
+        for trait, adjustment in adjustments.items():
+            if trait in base_weights:
+                old_val = base_weights[trait]
+                new_val = adjusted_weights[trait]
+                if abs(old_val - new_val) > 0.01:
+                    changes.append(f"{trait}: {old_val:.2f} -> {new_val:.2f}")
+        
+        if changes:
+            print(f"GPT 기반 가중치 조정: {', '.join(changes)}")
+        
+        return adjusted_weights
+    
+    def _apply_diversity_filter(self, recommendations, target_count=10):
+        """추천 결과에 다양성 필터링 적용"""
+        if len(recommendations) <= target_count:
+            return recommendations
+        
+        try:
+            engine = self._get_engine()
+            selected = [recommendations[0]]  # 첫 번째(가장 높은 점수)는 항상 포함
+            
+            for candidate in recommendations[1:]:
+                if len(selected) >= target_count:
+                    break
+                
+                # 현재 선택된 아이템들과의 평균 유사도 계산
+                candidate_id = candidate['item_id']
+                if candidate_id not in engine.model['node_embeddings']:
+                    selected.append(candidate)
+                    continue
+                
+                candidate_emb = engine.model['node_embeddings'][candidate_id]
+                similarities = []
+                
+                for selected_rec in selected:
+                    selected_id = selected_rec['item_id']
+                    if selected_id in engine.model['node_embeddings']:
+                        selected_emb = engine.model['node_embeddings'][selected_id]
+                        from sklearn.metrics.pairwise import cosine_similarity
+                        sim = cosine_similarity(
+                            candidate_emb.reshape(1, -1),
+                            selected_emb.reshape(1, -1)
+                        )[0][0]
+                        similarities.append(sim)
+                
+                # 평균 유사도가 임계값 이하인 경우만 선택
+                avg_similarity = sum(similarities) / len(similarities) if similarities else 0
+                similarity_threshold = 0.6  # 조정 가능한 임계값
+                
+                if avg_similarity < similarity_threshold:
+                    selected.append(candidate)
+                    print(f"다양성 필터: 아이템 {candidate_id} 선택 (평균 유사도: {avg_similarity:.3f})")
+            
+            # 목표 개수에 못 미치는 경우 나머지 채우기
+            while len(selected) < target_count and len(selected) < len(recommendations):
+                for candidate in recommendations:
+                    if candidate not in selected:
+                        selected.append(candidate)
+                        break
+            
+            print(f"다양성 필터링 완료: {len(recommendations)} -> {len(selected)}개")
+            return selected
+            
+        except Exception as e:
+            print(f"다양성 필터링 오류: {e}")
+            return recommendations[:target_count]
+    
+    def _enhance_weight_differences(self, weights):
+        """가중치 차이를 극대화하여 추천 다양성 증대"""
+        enhanced = weights.copy()
+        
+        # 1. 가중치 분포 분석
+        values = list(weights.values())
+        mean_val = sum(values) / len(values)
+        
+        # 2. 평균보다 높은 것은 더 높게, 낮은 것은 더 낮게
+        for trait, weight in weights.items():
+            if weight > mean_val:
+                # 높은 가중치는 더 극대화 (최대 0.95)
+                enhanced[trait] = min(0.95, weight + (weight - mean_val) * 1.5)
+            else:
+                # 낮은 가중치는 더 최소화 (최소 0.05)
+                enhanced[trait] = max(0.05, weight - (mean_val - weight) * 1.5)
+        
+        # 3. Big-Five 외의 trait들에 대해서도 더 극단적인 값 부여
+        style_traits = ['Elegant', 'Cute', 'Modern', 'Luxurious', 'Warm', 'Vivid', 'Sharp']
+        other_traits = ['OSL', 'CNFU', 'MVS', 'CVPA']
+        
+        # 성격 특성에 따라 스타일 trait 조정
+        if enhanced.get('Openness', 0.5) > 0.6:
+            enhanced['Modern'] = max(enhanced.get('Modern', 0.5), 0.8)
+            enhanced['Vivid'] = max(enhanced.get('Vivid', 0.5), 0.7)
+        
+        if enhanced.get('Extraversion', 0.5) > 0.6:
+            enhanced['Warm'] = max(enhanced.get('Warm', 0.5), 0.8)
+            enhanced['Vivid'] = max(enhanced.get('Vivid', 0.5), 0.7)
+        
+        if enhanced.get('Conscientiousness', 0.5) > 0.6:
+            enhanced['Elegant'] = max(enhanced.get('Elegant', 0.5), 0.8)
+            enhanced['Luxurious'] = max(enhanced.get('Luxurious', 0.5), 0.7)
+        
+        if enhanced.get('Agreeableness', 0.5) > 0.6:
+            enhanced['Cute'] = max(enhanced.get('Cute', 0.5), 0.8)
+            enhanced['Warm'] = max(enhanced.get('Warm', 0.5), 0.7)
+        
+        return enhanced
 
 class ProductService:
     def __init__(self):
@@ -322,6 +452,7 @@ class ProductService:
         except ValueError:
             return {
                 "success": False,
+                "data": None,
                 "error": {"code": "INVALID_PRODUCT_ID", "message": "잘못된 상품 ID입니다."}
             }
         
@@ -331,6 +462,7 @@ class ProductService:
         if product.empty:
             return {
                 "success": False,
+                "data": None,
                 "error": {"code": "PRODUCT_NOT_FOUND", "message": "상품을 찾을 수 없습니다."}
             }
         
@@ -410,6 +542,7 @@ class IntermediateService:
             traceback.print_exc()
             return {
                 "success": False,
+                "data": None,
                 "error": f"중간 결과 생성 중 오류가 발생했습니다: {str(e)}"
             }
 
