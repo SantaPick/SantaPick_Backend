@@ -81,22 +81,33 @@ class RecommendationEngine:
         return node_name in trait_nodes
     
     def _generate_user_embedding(self, user_edges):
-        """User 임베딩 생성 (연결된 노드들의 가중평균)"""
+        """User 임베딩 생성 (가중치 차이를 극대화한 가중평균)"""
         if not user_edges:
             return np.random.normal(0, 0.1, self.model['embedding_dim'])
         
         user_embedding = np.zeros(self.model['embedding_dim'])
         total_weight = 0
         
+        # 가중치 차이를 극대화하기 위해 제곱 적용
         for node_id, weight in user_edges:
             if node_id in self.model['node_embeddings']:
-                user_embedding += self.model['node_embeddings'][node_id] * abs(weight)
-                total_weight += abs(weight)
+                # 가중치를 제곱하여 차이를 극대화 (부호는 유지)
+                amplified_weight = (weight ** 2) * (1 if weight >= 0 else -1)
+                # 추가로 스케일링 팩터 적용
+                scaled_weight = amplified_weight * 3.0
+                
+                user_embedding += self.model['node_embeddings'][node_id] * scaled_weight
+                total_weight += abs(scaled_weight)
         
         if total_weight > 0:
             user_embedding /= total_weight
         else:
             user_embedding = np.random.normal(0, 0.1, self.model['embedding_dim'])
+        
+        # 임베딩에 노이즈 추가로 다양성 증대
+        noise_factor = 0.1
+        noise = np.random.normal(0, noise_factor, self.model['embedding_dim'])
+        user_embedding += noise
         
         return user_embedding
     
@@ -124,8 +135,19 @@ class RecommendationEngine:
                     'similarity': similarity
                 })
         
+        # 유사도에 작은 랜덤 노이즈 추가로 동일 결과 방지
+        import random
+        for item in item_similarities:
+            noise = random.uniform(-0.01, 0.01)  # 작은 노이즈 추가
+            item['similarity'] += noise
+        
         # 유사도 기준 정렬
         item_similarities.sort(key=lambda x: x['similarity'], reverse=True)
+        
+        print(f"추천 생성 완료: 상위 {top_k}개 선택 (총 {len(item_similarities)}개 중)")
+        if item_similarities:
+            print(f"최고 유사도: {item_similarities[0]['similarity']:.4f}, 최저 유사도: {item_similarities[-1]['similarity']:.4f}")
+        
         return item_similarities[:top_k]
     
     def get_item_details(self, recommendations):

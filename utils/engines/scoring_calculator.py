@@ -21,11 +21,29 @@ class ScoringCalculator:
         user_weights = {}
         
         for answer_id, answer_data in answers.items():
-            question_type = answer_data['question_type']
-            target_node = answer_data['target_node']
-            selected_choice = answer_data['selected_choice']
-            choice_index = answer_data['choice_index']
-            question = answer_data['question']
+            # 프론트엔드 데이터 형식에 맞게 수정
+            target_node = answer_data.get('target_node', 'Openness')
+            answer_text = answer_data.get('answer', '')
+            
+            # 답변 형식에 따라 질문 타입 추정
+            if answer_text in ['O', 'X']:
+                question_type = "O_X_question"
+                choice_index = 0 if answer_text == 'O' else 1
+            elif answer_text.startswith('1(') or answer_text in ['1', '2', '3', '4', '5']:
+                question_type = "5_point_question"
+                if answer_text.startswith('1('):
+                    choice_index = 0
+                else:
+                    choice_index = int(answer_text) - 1
+            elif len(answer_text) > 10:  # 긴 텍스트는 2선택 또는 4선택
+                question_type = "2_choice_question"
+                choice_index = 0  # 임시값
+            else:
+                question_type = "2_choice_question"
+                choice_index = 0
+            
+            selected_choice = answer_text
+            question = f"Question for {target_node}"
             
             # 질문 타입별 가중치 계산
             if question_type == "5_point_question":

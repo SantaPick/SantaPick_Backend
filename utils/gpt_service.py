@@ -143,7 +143,7 @@ class GPTService:
         
         # 답변 요약
         answers_summary = []
-        for i, answer in enumerate(all_answers[:10]):  # 처음 10개 답변만 요약
+        for i, answer in enumerate(all_answers[:44]):  
             answers_summary.append(f"Q{i+1}: {answer.get('answer', 'N/A')}")
         
         prompt = f"""
@@ -157,7 +157,7 @@ class GPTService:
 
 다음 형식으로 응답해주세요:
 1. 성격 유형: 매력적인 명사형 표현 (예: "창의적 감성주의자", "따뜻한 리더", "자유로운 모험가", "세심한 완벽주의자")
-2. 상세 설명: 해당 성격에 대한 구체적이고 긍정적인 설명 (2-3문장, 100자 내외)
+2. 상세 설명: 해당 성격에 대한 구체적인 설명 제공 (최대한 상세하게 작성성, 최대 500자)
 
 중요: 성격 유형은 반드시 명사로 끝나야 합니다. "~한 사람", "~이고 ~인 리더" 같은 명사형 표현을 사용하세요.
 
