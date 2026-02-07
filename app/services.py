@@ -4,6 +4,7 @@
 import uuid
 from typing import Dict, Any
 from .models import UserInfoRequest
+from utils.gpt_service import GPTService
 
 # 메모리 기반 세션 저장소
 sessions: Dict[str, Dict[str, Any]] = {}
@@ -33,18 +34,13 @@ class TestService:
         sys.path.append(str(Path(__file__).parent.parent))
         from utils.engines.data_loader import PsychologyDataLoader
         loader = PsychologyDataLoader()
-        loader.load_all_data()
+        structured_questions = loader.create_question_structure()
         
-        # Trait 질문만 사용
-        all_questions = []
-        if loader.trait_questions is not None:
-            all_questions.extend(loader.trait_questions.to_dict('records'))
-            
         return {
             "success": True,
             "data": {
-                "total_questions": len(all_questions),
-                "questions": all_questions
+                "total_questions": len(structured_questions),
+                "questions": structured_questions
             }
         }
     
@@ -210,8 +206,74 @@ class ProductService:
             "data": product_data
         }
 
+class IntermediateService:
+    def __init__(self):
+        self.gpt_service = GPTService()
+    
+    def get_intermediate_result(self, session_id: str) -> Dict[str, Any]:
+        """중간 결과 생성 - GPT 기반 성격 분석"""
+        try:
+            print(f"중간 결과 요청: session_id={session_id}")
+            print(f"현재 세션 목록: {list(sessions.keys())}")
+            
+            if session_id not in sessions:
+                print(f"세션 없음: {session_id}")
+                return {
+                    "success": False,
+                    "error": "세션을 찾을 수 없습니다."
+                }
+            
+            session_data = sessions[session_id]
+            print(f"세션 데이터: {session_data}")
+            user_name = session_data['user_info'].get('name', '사용자')
+            
+            # 현재까지의 답변이 있는지 확인
+            answers = session_data.get('answers', [])
+            if len(answers) < 3:  # 최소 3개 답변은 있어야 분석 가능
+                print(f"답변 부족: {len(answers)}개")
+                return {
+                    "success": False,
+                    "error": "아직 분석할 데이터가 충분하지 않습니다."
+                }
+            
+            print(f"GPT 호출 시작: user_name={user_name}, answers={len(answers)}개")
+            
+            # 답변 내용을 GPT가 분석할 수 있도록 정리
+            answer_summary = []
+            for answer in answers:
+                answer_summary.append(f"질문: {answer.get('target_node', '알 수 없음')} 관련, 답변: {answer.get('answer', '없음')}")
+            
+            # GPT로 중간 결과 생성 (답변 내용 직접 전달)
+            gpt_result = self.gpt_service.generate_intermediate_result_from_answers(
+                answer_summary, 
+                user_name
+            )
+            
+            print(f"GPT 결과: {gpt_result}")
+            
+            return {
+                "success": True,
+                "data": {
+                    "session_id": session_id,
+                    "user_name": user_name,
+                    "personality_type": gpt_result["personality_type"],
+                    "description": gpt_result["description"],
+                    "completion_rate": len(session_data.get('answers', [])) / 44 * 100
+                }
+            }
+            
+        except Exception as e:
+            print(f"IntermediateService 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": f"중간 결과 생성 중 오류가 발생했습니다: {str(e)}"
+            }
+
 # 서비스 인스턴스 생성
 user_service = UserService()
 test_service = TestService()
 recommendation_service = RecommendationService()
 product_service = ProductService()
+intermediate_service = IntermediateService()

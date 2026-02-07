@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 # API 라우터들 import
-from .api import user, test, recommendation, products
+from .api import user, test, recommendation, products, intermediate
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -29,6 +29,7 @@ app.include_router(user.router, tags=["사용자"])
 app.include_router(test.router, tags=["심리테스트"])
 app.include_router(recommendation.router, tags=["추천"])
 app.include_router(products.router, tags=["상품"])
+app.include_router(intermediate.router, tags=["중간결과"])
 
 # 정적 파일 서빙 (상품 이미지)
 from pathlib import Path
