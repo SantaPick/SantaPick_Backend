@@ -1,0 +1,45 @@
+﻿question_type,question,trait_node
+5_point_question,남들의 주목을 받는 것이 딱히 부담스럽지 않고 개의치 않는다.,Extraversion
+5_point_question,"나는 사람들 앞에 섰을 때, 그들의 마음을 사로잡고 주목받게 만드는 방법을 본능적으로 안다",Extraversion
+2_choice_question,"처음 보는 사람들이 가득한 모임 장소, 나는? ",Extraversion
+O_X_question,친한 친구여도 선은 필요하다. 나의 사생활과 개인적인 영역을 지키는 것은 무엇보다 중요하다.,Extraversion
+5_point_question,나는 사람들에게 관심이 많은 편이다. ,Agreeableness
+O_X_question,나는 아이들을 좋아하고 함께 있는 시간이 즐겁다.,Agreeableness
+O_X_question,"솔직히 말하면, 남들이 겪는 문제나 하소연에 별로 관심이 안 간다.",Agreeableness
+5_point_question,나는 친해질 때까지 시간이 꽤 걸리는 편이다,Agreeableness
+2_choice_question,잡일이 생겼을 때?,Conscientiousness
+O_X_question,나는 완벽주의가 있는 편이다. ,Conscientiousness
+5_point_question,결과물이 완벽해질 때까지 끈질기게 붙들고 늘어지는 편이다.,Conscientiousness
+5_point_question,종종 물건을 둔 자리를 깜빡하거나 제자리에 두는 것을 잊는다.,Conscientiousness
+5_point_question,나는 웬만해서는 우울감에 빠지지 않는다.,Neuroticism
+5_point_question,사소한 일에도 남들보다 쉽게 스트레스를 받는 편이다.,Neuroticism
+5_point_question,"하루에도 기분이 좋았다가 나빴다가, 감정의 기복이 잦다",Neuroticism
+5_point_question,나는 불평을 자주 하는 편이다,Neuroticism
+5_point_question,"평소 어휘력이 풍부하다는 소리를 듣거나, 다양한 단어 쓰기를 좋아한다",Openness
+2_choice_question,익숙하지 않은 복잡한 문제를 해결해야 할 때?,Openness
+O_X_question,복잡하고 속을 알기 어려운 사람은 피하고 싶다,Openness
+2_choice_question,인터넷 기사나 전공 서적 등 내용이 너무 어렵고 길다면?,Openness
+5_point_question,물건을 살 때 나만의 독특함을 드러낼 수 있는지가 중요한 목표다,CNFU
+O_X_question,"남들이 TPO(상황)에 안 맞게 입었다고 눈치를 줘도, 나는 내 스타일대로 입을 것이다.",CNFU
+O_X_question,누구나 사는 대중적인 브랜드나 제품은 피하려고 노력한다,CNFU
+O_X_question,마음에 드는 영화는 두 번이고 세 번이고 반복해서 다시 보는 것을 즐긴다,OSL
+O_X_question,"좋은 향기든 나쁜 냄새든, 남의 체취가 느껴지는 것 자체가 싫다.",OSL
+O_X_question,커피나 에너지 드링크 같은 각성제를 먹으면 몸이 불편해진다.,OSL
+O_X_question,나는 평소 한 번도 먹어보지 못한 낯선 음식 메뉴에 도전하는 것을 즐긴다,OSL
+2_choice_question,둘 중 무엇에 더 끌리나요?,OSL
+O_X_question,기회만 된다면 스카이다이빙 같은 익스트림 스포츠를 꼭 해보고 싶다.,OSL
+2_choice_question,더 끌리는 사람은?,OSL
+O_X_question,술을 한두 잔 정도 마시면 기분이 정말 좋아진다.,OSL
+5_point_question,남들이 가진 물건이나 풍족한 생활을 별로 부러워하지 않는 편이다,MVS
+O_X_question,충동구매 없이 주로 내게 꼭 필요한 물건 위주로만 산다,MVS
+5_point_question,더 바랄 게 없다. 나는 지금 인생을 즐기는 데 필요한 모든 것을 이미 다 가지고 있다고 생각한다,MVS
+5_point_question,기능이 다가 아니다. 아름답고 훌륭한 디자인은 세상을 더 살기 좋은 곳으로 만든다고 믿는다,CVPA
+5_point_question,남들은 그냥 지나치는 디자인의 디테일 차이를 알아채는 눈썰미가 뛰어난 편이다.,CVPA
+O_X_question,디자인이 마음이 꽂혀서 홀린듯이 물건을 산 적이 꽤 있다,CVPA
+4_choice_question,"깊은 잠에서 깨어났을 때, 눈앞에 펼쳐지길 바라는 창밖 풍경은?",Emotion
+4_choice_question,"길을 걷다 우연히 마주친 낯선 축제, 그곳의 색감은?",Emotion
+4_choice_question,"누군가 건넨 선물 상자, 손끝에 닿는 포장지의 감촉은?",Emotion
+4_choice_question,"낯선 공간에 들어섰을 때, 코끝을 스치는 향기는?",Emotion
+4_choice_question,"당신의 인생을 영화로 만든다면, 배경 음악의 장르는?",Emotion
+4_choice_question,책상 위에 단 하나만 놓을 수 있는 오브제는?,Emotion
+4_choice_question,긴 하루를 마치고 마시는 위로의 한 잔은?,Emotion

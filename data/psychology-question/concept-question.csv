@@ -1,0 +1,23 @@
+﻿question_type,question,concept_node
+5_point_question,대중적인 vs 유니크한,Unique
+5_point_question,강렬한 vs 차분한,Calm
+5_point_question,복잡한 vs 심플한,Simple
+5_point_question,물직적 가치 vs 의미적 가치,Meaningful_Value
+5_point_question,브랜드가 중요하다,Brand
+5_point_question,기능성이 중요하다,Efficiency
+5_point_question,오락성이 중요하다,Entertainment
+5_point_question,휴식이 중요하다,Rest
+5_point_question,환경과 사회에 기여하는 인증이  존재하는 것이 중요하다,Eco_Cert
+5_point_question,질감 선호: 딱딱함 vs 부드러움,Texture_Softness
+5_point_question,질감 선호: 거친 vs 매끈함,Texture_Smoothness
+5_point_question,광택 선호: 무광 vs 유광,Glossiness
+5_point_question,색상 선호: 채도 낮은 vs 채도 높은,Color_Saturation
+5_point_question,색상 선호: 명도 낮은 vs 명도 높은,Color_Brightness
+5_point_question,색상 선호: 한색 vs 난색,Color_Temperature
+5_point_question,감성에 대한 선호: 우아함,Pref_Elegant
+5_point_question,감성에 대한 선호: 귀여움,Pref_Cute
+5_point_question,감성에 대한 선호: 현대적,Pref_Modern
+5_point_question,감성에 대한 선호: 고급스러움,Pref_Luxurious
+5_point_question,감성에 대한 선호: 따뜻함,Pref_Warm
+5_point_question,감성에 대한 선호: vivid),Pref_Vivid
+5_point_question,감성에 대한 선호: 날카로움/쿨함,Pref_Sharp
