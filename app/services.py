@@ -96,6 +96,37 @@ class TestService:
 class RecommendationService:
     def __init__(self):
         self.engine = None
+        self.gpt_service = GPTService()
+        self.entity_mapping = None
+        
+    def _load_entity_mapping(self):
+        """entity_list.txt에서 그래프 노드 ID → 실제 상품 ID 매핑 로드"""
+        if self.entity_mapping is None:
+            import pandas as pd
+            from pathlib import Path
+            
+            # entity_list.txt 파일 경로
+            entity_path = Path(__file__).parent.parent / "data" / "graph_data" / "entity_list.txt"
+            
+            if not entity_path.exists():
+                # 원본 경로에서 복사
+                original_path = Path(__file__).parent.parent.parent / "Present-Recommedation" / "data" / "graph_data" / "entity_list.txt"
+                if original_path.exists():
+                    entity_path.parent.mkdir(parents=True, exist_ok=True)
+                    import shutil
+                    shutil.copy(original_path, entity_path)
+            
+            self.entity_mapping = {}
+            if entity_path.exists():
+                with open(entity_path, 'r') as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) >= 3 and parts[2] == 'item':
+                            real_product_id = int(parts[0])  # 실제 상품 ID
+                            graph_node_id = int(parts[1])   # 그래프 노드 ID
+                            self.entity_mapping[graph_node_id] = real_product_id
+        
+        return self.entity_mapping
         
     def _get_engine(self):
         """추천 엔진 lazy loading"""
@@ -109,10 +140,13 @@ class RecommendationService:
         return self.engine
     
     def _extract_product_id(self, item_id):
-        """item_id에서 실제 product_id 추출"""
-        if item_id and str(item_id).isdigit():
-            return int(item_id)
-        return None
+        """그래프 노드 ID에서 실제 product_id 추출"""
+        try:
+            graph_node_id = int(item_id)
+            entity_mapping = self._load_entity_mapping()
+            return entity_mapping.get(graph_node_id, None)
+        except (ValueError, TypeError):
+            return None
     
     def get_recommendations(self, session_id: str) -> Dict[str, Any]:
         if session_id not in sessions:
@@ -124,11 +158,90 @@ class RecommendationService:
         session = sessions[session_id]
         user_weights = session.get('personality_scores', {})
         
+        # personality_scores가 없으면 간단한 가중치 계산
         if not user_weights:
-            return {
-                "success": False,
-                "error": {"code": "NO_PERSONALITY_DATA", "message": "성격 분석 데이터가 없습니다."}
-            }
+            try:
+                # 모든 trait 노드에 대한 가중치 계산
+                trait_scores = {}
+                
+                # 답변을 기반으로 trait별 점수 계산
+                for answer in session.get('answers', []):
+                    target_node = answer.get('target_node', 'Extraversion')
+                    answer_value = answer.get('answer', '')
+                    
+                    # 답변에 따른 점수 부여 (1-5 스케일 가정)
+                    if '매우' in answer_value and '동의' in answer_value:
+                        score = 1.0
+                    elif '동의' in answer_value:
+                        score = 0.8
+                    elif '보통' in answer_value or '중립' in answer_value:
+                        score = 0.5
+                    elif '동의하지' in answer_value:
+                        score = 0.2
+                    elif '매우' in answer_value and '동의하지' in answer_value:
+                        score = 0.0
+                    else:
+                        # 기타 답변의 경우 중간값
+                        score = 0.5
+                    
+                    if target_node not in trait_scores:
+                        trait_scores[target_node] = []
+                    trait_scores[target_node].append(score)
+                
+                # 모든 trait 노드 목록 (모델에서 확인된 16개)
+                all_trait_nodes = [
+                    'Openness', 'Conscientiousness', 'Extraversion', 'Agreeableness', 'Neuroticism',
+                    'Elegant', 'Cute', 'Modern', 'Luxurious', 'Warm', 'Vivid', 'Sharp',
+                    'OSL', 'CNFU', 'MVS', 'CVPA'
+                ]
+                
+                # 평균 점수로 가중치 생성
+                user_weights = {}
+                for trait in all_trait_nodes:
+                    if trait in trait_scores and len(trait_scores[trait]) > 0:
+                        # 실제 답변이 있는 경우 평균 계산
+                        user_weights[trait] = sum(trait_scores[trait]) / len(trait_scores[trait])
+                    else:
+                        # 답변이 없는 trait들에 대해 랜덤한 기본값 설정
+                        import random
+                        if trait in ['Extraversion', 'Agreeableness', 'Conscientiousness', 'Openness']:
+                            user_weights[trait] = 0.3 + random.random() * 0.4  # 0.3-0.7 범위
+                        elif trait == 'Neuroticism':
+                            user_weights[trait] = 0.1 + random.random() * 0.4  # 0.1-0.5 범위
+                        else:
+                            user_weights[trait] = 0.2 + random.random() * 0.6  # 0.2-0.8 범위
+                else:
+                    # 기본 가중치 (모든 trait 포함)
+                    user_weights = {}
+                    for trait in all_trait_nodes:
+                        if trait in ['Extraversion', 'Agreeableness', 'Conscientiousness', 'Openness']:
+                            user_weights[trait] = 0.5
+                        elif trait == 'Neuroticism':
+                            user_weights[trait] = 0.3
+                        else:
+                            user_weights[trait] = 0.4
+                
+                session['personality_scores'] = user_weights
+                print(f"계산된 사용자 가중치 (총 {len(user_weights)}개): {user_weights}")
+                
+            except Exception as e:
+                print(f"성격 점수 계산 오류: {e}")
+                # 기본 가중치 사용 (모든 trait 포함)
+                all_trait_nodes = [
+                    'Openness', 'Conscientiousness', 'Extraversion', 'Agreeableness', 'Neuroticism',
+                    'Elegant', 'Cute', 'Modern', 'Luxurious', 'Warm', 'Vivid', 'Sharp',
+                    'OSL', 'CNFU', 'MVS', 'CVPA'
+                ]
+                user_weights = {}
+                for trait in all_trait_nodes:
+                    if trait in ['Extraversion', 'Agreeableness', 'Conscientiousness']:
+                        user_weights[trait] = 0.5
+                    elif trait == 'Openness':
+                        user_weights[trait] = 0.7
+                    elif trait == 'Neuroticism':
+                        user_weights[trait] = 0.3
+                    else:
+                        user_weights[trait] = 0.4
         
         try:
             # 추천 엔진 실행
@@ -149,10 +262,39 @@ class RecommendationService:
                     "rank": i + 1
                 })
             
-            return {
-                "success": True,
-                "data": {"recommendations": formatted_recommendations}
-            }
+            # GPT를 통한 최종 성격 분석 추가
+            try:
+                user_name = session['user_info']['name']
+                all_answers = session.get('answers', [])
+                gpt_result = self.gpt_service.generate_final_result(user_weights, user_name, all_answers)
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "recommendations": formatted_recommendations,
+                        "personality_analysis": {
+                            "personality_type": gpt_result["personality_type"],
+                            "description": gpt_result["description"]
+                        },
+                        "user_name": session['user_info']['name'],
+                        "traits": user_weights
+                    }
+                }
+            except Exception as gpt_error:
+                print(f"GPT 최종 분석 오류: {gpt_error}")
+                # GPT 오류 시에도 추천 결과는 반환
+                return {
+                    "success": True,
+                    "data": {
+                        "recommendations": formatted_recommendations,
+                        "personality_analysis": {
+                            "personality_type": "매력적인 개성",
+                            "description": f"{session['user_info']['name']}님만의 특별한 매력이 돋보입니다."
+                        },
+                        "user_name": session['user_info']['name'],
+                        "traits": user_weights
+                    }
+                }
             
         except Exception as e:
             return {

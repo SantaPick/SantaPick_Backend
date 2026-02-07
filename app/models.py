@@ -44,12 +44,14 @@ class RecommendationItem(BaseModel):
 
 class RecommendationResponse(BaseModel):
     success: bool
-    data: Dict[str, List[RecommendationItem]]
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[Dict[str, str]] = None
 
 # 상품 관련
 class ProductResponse(BaseModel):
     success: bool
-    data: Dict[str, Any]
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[Dict[str, str]] = None
 
 # 에러 응답
 class ErrorResponse(BaseModel):
